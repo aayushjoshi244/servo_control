@@ -80,3 +80,79 @@ finally:
     servo1.stop()
     servo2.stop()
     GPIO.cleanup()
+
+
+import cv2
+import mediapipe as mp
+import RPi.GPIO as GPIO
+import time
+
+# GPIO setup
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
+servo_pin = 17
+GPIO.setup(servo_pin, GPIO.OUT)
+
+servo = GPIO.PWM(servo_pin, 50)  # 50Hz
+servo.start(0)
+
+def move_servo(angle):
+    duty = angle / 18 + 2
+    GPIO.output(servo_pin, True)
+    servo.ChangeDutyCycle(duty)
+    time.sleep(0.5)
+    GPIO.output(servo_pin, False)
+    servo.ChangeDutyCycle(0)
+
+# MediaPipe
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(max_num_hands=1)
+mp_draw = mp.solutions.drawing_utils
+
+fingertips_ids = [4, 8, 12, 16, 20]
+
+def fingers_up(hand_landmarks):
+    finger_states = []
+    # Thumb
+    finger_states.append(hand_landmarks.landmark[fingertips_ids[0]].x < hand_landmarks.landmark[fingertips_ids[0] - 1].x)
+    # Other fingers
+    for tip_id in fingertips_ids[1:]:
+        finger_states.append(hand_landmarks.landmark[tip_id].y < hand_landmarks.landmark[tip_id - 2].y)
+    return finger_states
+
+cap = cv2.VideoCapture(0)
+
+try:
+    while True:
+        success, img = cap.read()
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = hands.process(img_rgb)
+
+        if results.multi_hand_landmarks:
+            for handLms in results.multi_hand_landmarks:
+                mp_draw.draw_landmarks(img, handLms, mp_hands.HAND_CONNECTIONS)
+
+                finger_status = fingers_up(handLms)
+
+                if all(finger_status):  # Open hand
+                    print("Open hand → Open servo")
+                    move_servo(90)  # Or 120 for more open
+
+                elif not any(finger_status):  # All fingers down
+                    print("Closed fist → Close servo")
+                    move_servo(0)
+
+        cv2.imshow("Floppy Cam", img)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+except KeyboardInterrupt:
+    print("Interrupted.")
+
+finally:
+    cap.release()
+    cv2.destroyAllWindows()
+    servo.stop()
+    GPIO.cleanup()
+
