@@ -8,41 +8,40 @@ GPIO.setwarnings(False)
 servo_pin = 17
 GPIO.setup(servo_pin, GPIO.OUT)
 
-# Initialize PWM on the servo pin
+# Setup PWM
 servo = GPIO.PWM(servo_pin, 50)  # 50 Hz
 servo.start(0)
 
 def move_servo(angle):
     duty = angle / 18 + 2
-    GPIO.output(servo_pin, True)
     servo.ChangeDutyCycle(duty)
-    time.sleep(0.5)
-    GPIO.output(servo_pin, False)
-    servo.ChangeDutyCycle(0)
+    print(f"Moving to {angle} degrees → duty: {duty:.2f}")
+    time.sleep(1.5)  # Hold signal longer so servo can reach the angle
+    servo.ChangeDutyCycle(0)  # Stop signal (to avoid jittering)
 
-print("Press 'O' to open servo, 'C' to close it. Press 'Q' to quit.")
+print("Press 'O' to open (rotate 90°), 'C' to close (rotate 0°), 'Q' to quit.")
 
 try:
     while True:
         key = input("Enter command (O/C/Q): ").strip().upper()
 
         if key == 'O':
-            print("Opening servo...")
-            move_servo(90)  # You can adjust to 120 or more if needed
+            print("Opening servo fully...")
+            move_servo(90)  # You can go up to 120 if your servo allows
 
         elif key == 'C':
-            print("Closing servo...")
+            print("Closing servo fully...")
             move_servo(0)
 
         elif key == 'Q':
-            print("Exiting...")
+            print("Quitting...")
             break
 
         else:
             print("Invalid input. Please press 'O', 'C', or 'Q'.")
 
 except KeyboardInterrupt:
-    print("Program interrupted.")
+    print("Interrupted manually.")
 
 finally:
     servo.stop()
